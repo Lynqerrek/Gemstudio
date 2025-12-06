@@ -3,1057 +3,1199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GemStudio - 2D Game Maker</title>
+    <title>VoxelVerse Studio 9.4</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;700&display=swap');
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0f172a;
-            color: #e2e8f0;
-            overflow: hidden;
+        body { 
+            background-color: #0f172a; 
+            color: #e2e8f0; 
+            font-family: 'Segoe UI', sans-serif; 
+            height: 100vh; 
+            width: 100vw;
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            user-select: none;
         }
         
-        .code-font {
-            font-family: 'Fira Code', monospace;
-        }
-
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
-        .pixel-grid {
-            display: grid;
-            gap: 1px;
-            background-color: #334155;
-            border: 2px solid #475569;
-            width: 100%;
-            aspect-ratio: 1/1;
-            cursor: crosshair;
+        /* EDITOR STACKING CONTEXT */
+        .editor-container {
+            position: relative;
+            flex: 1;
+            overflow: hidden;
+            background-color: #1e293b;
         }
 
-        .pixel-cell { background-color: transparent; width: 100%; height: 100%; }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: flex; }
-
-        canvas { image-rendering: pixelated; }
-
-        .panel-hidden { display: none !important; }
-
-        .selectable-text { user-select: text; cursor: text; }
-
-        #toast {
-            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
-            background-color: #10b981; color: white; padding: 8px 16px; border-radius: 99px;
-            font-size: 14px; font-weight: 600; opacity: 0; pointer-events: none; z-index: 50;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-        .fullscreen-container {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: #000; z-index: 100; display: flex; align-items: center; justify-content: center;
-        }
-        .fullscreen-canvas {
-            width: 100%; height: 100%; object-fit: contain;
-        }
-
-        /* Editor Syntax Highlighting */
-        .editor-layer {
+        /* Shared styles for backdrop and textarea to ensure alignment */
+        .editor-shared {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             padding: 1rem;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.875rem;
-            line-height: 1.5rem;
-            white-space: pre; 
+            margin: 0;
+            border: 0;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre; /* Disable wrapping for easier alignment */
             overflow: auto;
-            border: none;
-        }
-        
-        .highlight-layer {
-            z-index: 0;
-            background-color: #0f172a; 
-            color: transparent; 
-            pointer-events: none;
+            box-sizing: border-box;
         }
 
-        .input-layer {
-            z-index: 10;
-            background-color: transparent;
-            color: #cbd5e1; 
-            caret-color: white;
-            resize: none;
+        #code-backdrop {
+            z-index: 1;
+            color: transparent;
+            background: transparent;
+            pointer-events: none; /* Let clicks pass through to textarea */
+        }
+
+        #code-editor {
+            z-index: 2;
+            color: #a5b4fc;
+            background: transparent;
+            caret-color: #38bdf8;
             outline: none;
+            resize: none;
         }
 
-        .error-line {
-            background-color: rgba(220, 38, 38, 0.4); 
-            min-width: 100%;
-            display: inline-block;
+        /* Error Highlighting */
+        .line-error {
+            background-color: rgba(220, 38, 38, 0.25); /* Red background */
+            width: 100%;
+            display: inline-block; /* Fill width */
         }
+
+        #console-output {
+            font-family: 'Fira Code', monospace;
+            font-size: 11px;
+            color: #cbd5e1;
+        }
+        .log-msg { border-bottom: 1px solid #334155; padding: 2px 0; }
+        .log-msg.error { color: #f87171; }
+        .log-msg.info { color: #38bdf8; }
+
+        #canvas-container {
+            background: #000;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            cursor: default;
+        }
+
+        /* Toolbar */
+        .tool-btn {
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid #334155;
+            color: #94a3b8;
+            width: 36px; height: 36px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        .tool-btn:hover { background: #0ea5e9; border-color: #0ea5e9; color: white; transform: translateY(-2px); }
+        .tool-btn.active { background: #0ea5e9; color: white; border-color: #38bdf8; }
+        
+        /* Inspector Inputs */
+        .insp-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 11px; }
+        .insp-label { color: #94a3b8; font-weight: 600; text-transform: uppercase; }
+        .insp-input { 
+            background: #0f172a; border: 1px solid #334155; color: white; 
+            border-radius: 3px; padding: 2px 6px; width: 60px; text-align: right;
+        }
+        .insp-input:focus { border-color: #0ea5e9; outline: none; }
+        .insp-color { width: 100%; height: 24px; cursor: pointer; border: 1px solid #334155; border-radius: 3px; }
+
+        .tab-content { display: none; height: 100%; width: 100%; }
+        .tab-content.active { display: flex; }
+        
+        .obj-item { padding: 6px 10px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; }
+        .obj-item:hover { background-color: #334155; }
+        .obj-item.selected { background-color: #0ea5e9; color: white; }
+        .obj-icon { margin-right: 8px; opacity: 0.7; }
+
+        /* Floating Label Style */
+        .world-label {
+            position: absolute;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+            text-shadow: 0 1px 2px black;
+        }
+
+        /* Layout Transitions */
+        #right-sidebar { transition: width 0.3s ease; }
+        .panel-section { transition: flex-grow 0.3s ease, height 0.3s ease; }
+
+        /* Help Styles */
+        .help-section { margin-bottom: 2rem; }
+        .help-title { font-size: 1.25rem; font-weight: bold; color: #38bdf8; margin-bottom: 0.5rem; border-bottom: 1px solid #334155; padding-bottom: 0.25rem; }
+        .help-cmd { font-family: 'Fira Code', monospace; background: #1e293b; padding: 2px 6px; border-radius: 4px; color: #a5b4fc; font-size: 0.9em; }
+        .help-desc { color: #cbd5e1; font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .help-example { background: #020617; padding: 8px; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.8rem; color: #94a3b8; border-left: 2px solid #334155; margin-top: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .copy-btn { opacity: 0; background: #1e293b; color: #94a3b8; padding: 2px 8px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-size: 10px; font-family: sans-serif; border: 1px solid #334155; }
+        .help-example:hover .copy-btn { opacity: 1; }
+        .copy-btn:hover { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
+
     </style>
 </head>
-<body class="h-screen flex flex-col">
+<body>
 
-    <div id="toast"><i class="fa-solid fa-check mr-2"></i>Copied to clipboard!</div>
-
-    <!-- Header -->
-    <header class="bg-slate-900 border-b border-slate-700 p-3 flex justify-between items-center h-14 shrink-0 z-20">
+    <!-- NAVIGATION BAR -->
+    <nav class="bg-slate-900 border-b border-slate-700 h-12 flex items-center justify-between px-4 shrink-0 z-20">
         <div class="flex items-center gap-2">
-            <i class="fa-solid fa-gem text-purple-400 text-xl"></i>
-            <h1 class="font-bold text-lg tracking-tight">Gem<span class="text-purple-400">Studio</span></h1>
+            <div class="bg-cyan-500 text-white w-6 h-6 rounded flex items-center justify-center font-bold text-xs shadow-lg shadow-cyan-500/50">V</div>
+            <h1 class="text-sm font-bold tracking-wider text-white">VOXEL<span class="text-cyan-400">VERSE</span> <span class="text-[10px] text-slate-500 ml-1">v9.4</span></h1>
         </div>
-        <div class="flex gap-2">
-            <div class="flex bg-slate-800 rounded-md p-0.5 mr-4 border border-slate-700" id="studio-controls">
-                <button onclick="togglePanel('pixelEditorPanel')" class="px-3 py-1 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">
-                    <i class="fa-solid fa-paintbrush mr-1"></i> Art
-                </button>
-                <button onclick="togglePanel('propertiesPanel')" class="px-3 py-1 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">
-                    <i class="fa-solid fa-sliders mr-1"></i> Props
-                </button>
-            </div>
-
-            <button onclick="switchTab('studio')" class="px-4 py-1.5 rounded-md text-sm font-medium bg-purple-600 hover:bg-purple-500 transition shadow-lg shadow-purple-900/50" id="btn-studio">
-                <i class="fa-solid fa-code mr-1"></i> Studio
-            </button>
-            <button onclick="switchTab('help')" class="px-4 py-1.5 rounded-md text-sm font-medium bg-slate-700 hover:bg-slate-600 transition" id="btn-help">
-                <i class="fa-solid fa-book mr-1"></i> Help & Docs
-            </button>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <div class="flex-1 flex overflow-hidden relative">
         
-        <!-- STUDIO TAB -->
-        <div id="studio" class="tab-content active w-full h-full">
-            <!-- Code Editor -->
-            <div class="w-1/3 border-r border-slate-700 flex flex-col bg-slate-900 shrink-0 relative">
-                <div class="p-2 bg-slate-800 border-b border-slate-700 flex gap-2 overflow-x-auto z-20 relative">
-                    <span class="text-xs font-bold text-slate-500 self-center mr-1">SPAWN:</span>
-                    <button onclick="spawnObject('wall')" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-blue-300 font-mono border border-slate-600 cursor-move">Wall</button>
-                    <button onclick="spawnObject('hero')" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-green-300 font-mono border border-slate-600 cursor-move">Hero</button>
-                    <button onclick="spawnObject('coin')" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-yellow-300 font-mono border border-slate-600 cursor-move">Coin</button>
-                    <button onclick="spawnObject('enemy')" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-red-300 font-mono border border-slate-600 cursor-move">Enemy</button>
-                </div>
+        <div class="flex gap-1 bg-slate-800 p-0.5 rounded-md">
+            <button onclick="switchTab('create')" id="btn-create" class="px-3 py-1 rounded text-xs font-semibold text-white bg-cyan-600 transition hover:bg-cyan-500">EDITOR</button>
+            <button onclick="switchTab('help')" id="btn-help" class="px-3 py-1 rounded text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-700 transition"><i class="fa-solid fa-book mr-1"></i>HELP</button>
+        </div>
 
-                <div class="p-2 bg-slate-900 text-xs font-bold text-slate-400 flex justify-between items-center z-20 relative">
-                    <span>SCRIPT.GEM</span>
-                    <div class="flex gap-2">
-                        <button onclick="formatCode()" class="hover:text-blue-400 mr-2" title="Format Code"><i class="fa-solid fa-align-left"></i></button>
-                        <button onclick="clearCode()" class="hover:text-red-400" title="Clear Code"><i class="fa-solid fa-trash"></i></button>
-                    </div>
+        <div class="text-xs text-slate-500 flex items-center gap-2">
+            <span id="save-status" class="hidden text-green-400 font-bold text-[10px]">SAVED</span>
+            <i class="fa-solid fa-circle-user text-slate-400 text-sm"></i>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 min-h-0 relative flex w-full">
+
+        <!-- TAB 1: CREATE -->
+        <div id="tab-create" class="tab-content active">
+            
+            <!-- LEFT: CODE EDITOR & CONSOLE -->
+            <div class="w-1/3 flex flex-col border-r border-slate-700 bg-slate-900 z-10 min-w-[300px]">
+                <!-- Toolbar -->
+                <div class="p-2 bg-slate-800 flex justify-between items-center border-b border-slate-700 shrink-0">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-code mr-1"></i> Script</span>
+                    <button id="btn-compile" onclick="CodeManager.toggleRun()" class="text-[10px] bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded font-bold transition shadow-lg shadow-green-900/40 min-w-[70px] flex items-center justify-center">
+                        <i class="fa-solid fa-play mr-1"></i> RUN
+                    </button>
                 </div>
                 
-                <!-- LAYERED EDITOR -->
-                <div class="relative flex-1 overflow-hidden bg-slate-900">
-                    <div id="codeBackdrop" class="editor-layer highlight-layer"></div>
-                    <textarea id="codeEditor" oninput="handleEditorInput()" onscroll="syncScroll()" class="editor-layer input-layer" spellcheck="false" placeholder="// Write your GemScript here..."></textarea>
+                <!-- Editor with Validator -->
+                <div class="editor-container">
+                    <div id="code-backdrop" class="editor-shared"></div>
+                    <textarea id="code-editor" class="editor-shared" spellcheck="false" oninput="Editor.update()" onscroll="Editor.syncScroll()" placeholder="# VoxelScript 9.4
+# Unknown commands will turn RED
+
+var speed = 0.5
+
+func spawn {
+    cube 0 1 0 1 cyan name:box
+    spin box 0 $speed 0
+}
+
+call spawn
+plane 0 0 0 10 #222"></textarea>
                 </div>
 
-                <div class="p-3 bg-slate-800 border-t border-slate-700 flex gap-2 z-20 relative">
-                    <button id="runBtn" onclick="toggleGame()" class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded flex items-center justify-center gap-2 transition shadow-lg shadow-green-900/20">
-                        <i class="fa-solid fa-play"></i> PLAY
-                    </button>
-                    <button id="stopBtn" onclick="stopGame()" class="hidden flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 rounded flex items-center justify-center gap-2 transition shadow-lg shadow-red-900/20">
-                        <i class="fa-solid fa-stop"></i> STOP
-                    </button>
-                </div>
-                 <div id="console" class="bg-slate-950 px-3 py-1 text-xs font-mono text-slate-400 h-6 truncate flex gap-2 border-t border-slate-700 z-20 relative">
-                    <span class="text-slate-600">></span> <span id="consoleText">Editor Ready. Drag objects to move them.</span>
+                <!-- Console -->
+                <div class="h-32 bg-slate-950 border-t border-slate-700 flex flex-col shrink-0">
+                    <div class="px-2 py-1 bg-slate-900 border-b border-slate-800 text-[10px] font-bold text-slate-500 flex justify-between">
+                        <span><i class="fa-solid fa-terminal mr-1"></i> CONSOLE</span>
+                        <span class="cursor-pointer hover:text-white" onclick="$('console-output').innerHTML=''"><i class="fa-solid fa-ban"></i></span>
+                    </div>
+                    <div id="console-output" class="flex-1 overflow-y-auto p-2"></div>
                 </div>
             </div>
 
-            <!-- Game Canvas -->
-            <div id="canvasContainer" class="flex-1 bg-black flex flex-col items-center justify-center relative overflow-hidden bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-800 to-slate-950">
+            <!-- CENTER: 3D VIEWPORT -->
+            <div id="canvas-wrapper" class="flex-1 relative bg-black min-w-0 flex flex-col">
                 
-                <!-- Overlay UI -->
-                <div class="absolute top-4 left-4 z-10 bg-black/50 p-2 rounded text-xs text-white pointer-events-none backdrop-blur-sm border border-white/10">
-                    <p>Mode: <span id="gameMode" class="text-blue-400 font-bold">EDITOR</span></p>
-                    <p>Entities: <span id="entityCount">0</span></p>
-                    <p class="text-[10px] text-slate-400 mt-1">Hold SPACE + Drag to Pan</p>
+                <!-- Floating Toolbar Left (Creation) -->
+                <div class="absolute top-4 left-4 flex gap-1 z-20 bg-slate-900/80 p-1 rounded-lg border border-slate-700 backdrop-blur-sm">
+                    <button class="tool-btn" onclick="Toolbox.add('cube')" title="Cube"><i class="fa-solid fa-cube"></i></button>
+                    <button class="tool-btn" onclick="Toolbox.add('sphere')" title="Sphere"><i class="fa-solid fa-circle"></i></button>
+                    <button class="tool-btn" onclick="Toolbox.add('cylinder')" title="Cylinder"><i class="fa-solid fa-database"></i></button>
+                    <button class="tool-btn" onclick="Toolbox.add('plane')" title="Plane"><i class="fa-solid fa-vector-square"></i></button>
+                    <div class="w-px bg-slate-700 mx-1"></div>
+                    <button class="tool-btn" onclick="Toolbox.add('light')" title="Light"><i class="fa-solid fa-lightbulb text-yellow-400"></i></button>
+                    <button class="tool-btn" onclick="Toolbox.add('label')" title="Label"><i class="fa-solid fa-font text-green-400"></i></button>
                 </div>
 
-                <div class="absolute top-4 right-4 z-10 flex gap-2">
-                    <button onclick="toggleFullscreen()" class="bg-black/50 hover:bg-white/20 p-2 rounded text-white backdrop-blur-sm border border-white/10 transition" title="Fullscreen">
-                        <i class="fa-solid fa-expand"></i>
-                    </button>
+                <!-- Floating Toolbar Right (Panels) -->
+                <div class="absolute top-4 right-4 flex gap-1 z-20 bg-slate-900/80 p-1 rounded-lg border border-slate-700 backdrop-blur-sm">
+                    <button id="btn-toggle-outliner" class="tool-btn active" onclick="Layout.toggle('outliner')" title="Toggle Outliner"><i class="fa-solid fa-layer-group"></i></button>
+                    <button id="btn-toggle-inspector" class="tool-btn active" onclick="Layout.toggle('inspector')" title="Toggle Inspector"><i class="fa-solid fa-sliders"></i></button>
+                </div>
+
+                <div id="canvas-container" tabindex="0">
+                    <div id="label-layer" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
                 </div>
                 
-                <canvas id="gameCanvas" width="600" height="400" class="bg-slate-800 shadow-2xl border border-slate-700 cursor-default"></canvas>
+                <div class="absolute bottom-2 left-2 pointer-events-none">
+                    <div class="text-[10px] text-slate-400 opacity-50">
+                        L-Click: Select/Run • Drag: Move • Drag BG: Orbit • R-Click: Delete
+                    </div>
+                </div>
             </div>
 
-            <!-- Right Sidebar -->
-            <div class="w-72 bg-slate-800 border-l border-slate-700 flex flex-col overflow-y-auto shrink-0 transition-all duration-300" id="rightSidebar">
-                <!-- Properties -->
-                <div id="propertiesPanel" class="border-b border-slate-700 bg-slate-800 flex flex-col h-1/2 panel-hidden">
-                    <div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center">
-                        <h3 class="text-xs font-bold text-purple-400 uppercase tracking-wider"><i class="fa-solid fa-sliders mr-1"></i> Properties</h3>
-                        <span class="text-[10px] text-slate-500">LIVE</span>
+            <!-- RIGHT: SIDEBAR -->
+            <div id="right-sidebar" class="w-60 bg-slate-900 border-l border-slate-700 flex flex-col shrink-0 overflow-hidden">
+                
+                <!-- OUTLINER -->
+                <div id="panel-outliner" class="panel-section flex flex-col border-b border-slate-700 h-1/2 min-h-0">
+                    <div class="p-2 bg-slate-800 border-b border-slate-700 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <i class="fa-solid fa-layer-group mr-1"></i> Outliner
                     </div>
-                    <div class="flex-1 overflow-y-auto p-3 space-y-3" id="propContainer">
-                        <div id="propList" class="space-y-1"></div>
-                        <!-- Edit Form -->
-                        <div id="editForm" class="hidden bg-slate-900 p-3 rounded border border-slate-700 space-y-2">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs font-bold text-white" id="editName">Entity</span>
-                                <button onclick="closeEdit()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div><label class="text-[10px] text-slate-400">X</label><input type="number" id="editX" class="prop-input w-full bg-slate-800 border border-slate-600 rounded px-1 text-xs text-white"></div>
-                                <div><label class="text-[10px] text-slate-400">Y</label><input type="number" id="editY" class="prop-input w-full bg-slate-800 border border-slate-600 rounded px-1 text-xs text-white"></div>
-                                <div><label class="text-[10px] text-slate-400">W</label><input type="number" id="editW" class="prop-input w-full bg-slate-800 border border-slate-600 rounded px-1 text-xs text-white"></div>
-                                <div><label class="text-[10px] text-slate-400">H</label><input type="number" id="editH" class="prop-input w-full bg-slate-800 border border-slate-600 rounded px-1 text-xs text-white"></div>
-                            </div>
-                        </div>
-                    </div>
+                    <div id="scene-list" class="flex-1 overflow-y-auto"></div>
                 </div>
 
-                <!-- Pixel Artist -->
-                <div id="pixelEditorPanel" class="p-4 border-b border-slate-700 flex-none">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-paintbrush mr-1"></i> Pixel Artist</h3>
-                        <select id="gridSizeSel" onchange="initGrid()" class="bg-slate-900 border border-slate-600 text-[10px] text-white rounded px-1">
-                            <option value="16">16x16</option>
-                            <option value="32">32x32</option>
-                        </select>
+                <!-- INSPECTOR -->
+                <div id="panel-inspector" class="panel-section flex flex-col bg-slate-850 h-1/2 min-h-0">
+                    <div class="p-2 bg-slate-800 border-b border-slate-700 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <i class="fa-solid fa-sliders mr-1"></i> Inspector
                     </div>
-                    <div class="pixel-grid mb-3" id="pixelGrid"></div>
-                    <div class="flex flex-wrap gap-1 mb-3" id="colorPalette"></div>
-                    <div class="flex gap-2 mb-2">
-                        <input type="text" id="textureName" placeholder="Texture_Name" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white">
+                    <div id="inspector-content" class="p-4 overflow-y-auto">
+                        <div class="text-center text-xs text-slate-500 mt-10 italic">Select an object</div>
                     </div>
-                    <button onclick="saveTexture()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded transition">
-                        <i class="fa-solid fa-floppy-disk mr-1"></i> SAVE ASSET
-                    </button>
-                </div>
-                
-                <div class="p-4 flex-1 overflow-y-auto">
-                    <h3 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">Textures</h3>
-                    <div id="assetList" class="space-y-2"></div>
                 </div>
             </div>
         </div>
 
         <!-- HELP TAB -->
-        <div id="help" class="tab-content w-full h-full bg-slate-900 overflow-y-auto p-8 justify-center">
-            <div class="max-w-4xl w-full space-y-8 pb-20 selectable-text">
-                <div class="border-b border-slate-700 pb-4">
-                    <h2 class="text-3xl font-bold text-purple-400 mb-2">GemStudio Docs</h2>
-                    <p class="text-slate-400">Complete dictionary of all commands. <span class="text-white font-bold">Tip:</span> Edit code boxes below before copying!</p>
+        <div id="tab-help" class="tab-content flex-col p-8 overflow-y-auto w-full max-w-4xl mx-auto text-slate-300">
+            <h1 class="text-3xl font-bold text-white mb-6">VoxelScript Documentation</h1>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                <div class="help-section">
+                    <div class="help-title">Objects & Creation</div>
+                    <p class="help-desc">Commands to spawn 3D objects in the scene.</p>
+                    
+                    <div class="mb-3">
+                        <div class="help-cmd">cube x y z size color [name:id]</div>
+                        <div class="help-example"><span>cube 0 1 0 1 red name:myBox</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">sphere x y z size color [name:id]</div>
+                        <div class="help-example"><span>sphere 2 2 0 0.5 blue</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">plane x y z size color [name:id]</div>
+                        <div class="help-example"><span>plane 0 0 0 10 #333 name:floor</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">light x y z color [intensity:n]</div>
+                        <div class="help-example"><span>light 0 5 0 white intensity:2</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">label x y z "Text" color size</div>
+                        <div class="help-example"><span>label 0 2 0 "Start" yellow 1.5</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
                 </div>
 
-                <!-- Basic Creation -->
-                <section>
-                    <h3 class="text-xl font-semibold text-white mb-4 border-l-4 border-purple-500 pl-3">Creation & Basics</h3>
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">CREATE</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Makes a new object. Format: Name X Y W H.</p>
-                            <input type="text" value="CREATE player 100 100 32 32" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">CLONE</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Duplicates an existing object.</p>
-                            <input type="text" value="CLONE player player_copy" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">DESTROY</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Removes an object from the game.</p>
-                            <input type="text" value="DESTROY enemy" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">COLOR</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Sets the color (use Hex code).</p>
-                            <input type="text" value="COLOR player #ff0000" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">TEXTURE</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Sets image. Use name saved in Pixel Artist.</p>
-                            <input type="text" value="TEXTURE player my_texture" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
+                <div class="help-section">
+                    <div class="help-title">Logic & Flow</div>
+                    <p class="help-desc">Control execution flow and define logic.</p>
+                    
+                    <div class="mb-3">
+                        <div class="help-cmd">var name = value</div>
+                        <div class="help-example"><span>var speed = 0.5</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
                     </div>
-                </section>
+                    <div class="mb-3">
+                        <div class="help-cmd">set name = expression</div>
+                        <div class="help-example"><span>set speed = $speed + 0.1</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">wait seconds</div>
+                        <div class="help-example"><span>wait 1.5</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">loop count iterator { ... }</div>
+                        <div class="help-example"><span>loop 5 i { cube $i 0 0 1 red }</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">if condition { ... }</div>
+                        <div class="help-example"><span>if $score > 10 { print 'Win!' }</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">func name { ... }</div>
+                        <div class="help-example"><span>func jump { move player 0 1 0 }</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">call name</div>
+                        <div class="help-example"><span>call jump</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                </div>
 
-                <!-- Movement -->
-                <section>
-                    <h3 class="text-xl font-semibold text-white mb-4 border-l-4 border-blue-500 pl-3">Physics & Movement</h3>
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">PHYSICS</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Enables gravity and velocity for object.</p>
-                            <input type="text" value="PHYSICS player true" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">SOLID</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Makes object a solid wall/floor (blocks others).</p>
-                            <input type="text" value="SOLID wall true" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                         <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">VELOCITY</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Sets constant speed instantly (X Y).</p>
-                            <input type="text" value="VELOCITY player 5 0" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">ADD_VEL</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Pushes the object (adds to current speed).</p>
-                            <input type="text" value="ADD_VEL player 0 -10" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                         <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">MOVE</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Teleports object by X Y pixels.</p>
-                            <input type="text" value="MOVE player 10 0" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">ROTATE</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Rotates object by degrees.</p>
-                            <input type="text" value="ROTATE coin 5" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">GRAVITY</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Sets global gravity pull (default 0).</p>
-                            <input type="text" value="GRAVITY 0.5" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">FRICTION</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Air resistance (0.0 - 1.0). Lower is slippery.</p>
-                            <input type="text" value="FRICTION 0.9" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
+                <div class="help-section">
+                    <div class="help-title">Manipulation</div>
+                    <p class="help-desc">Change object properties over time.</p>
+                    
+                    <div class="mb-3">
+                        <div class="help-cmd">move name x y z</div>
+                        <div class="help-desc">Moves object relative to current position.</div>
+                        <div class="help-example"><span>move player 0 0.1 0</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
                     </div>
-                </section>
+                    <div class="mb-3">
+                        <div class="help-cmd">teleport name x y z</div>
+                        <div class="help-desc">Moves object to absolute position.</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">color name newColor</div>
+                        <div class="help-example"><span>color myBox green</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">destroy name</div>
+                        <div class="help-example"><span>destroy enemy</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">prop name key value</div>
+                        <div class="help-desc">Change material props (metalness, roughness, opacity).</div>
+                        <div class="help-example"><span>prop cube1 metalness 0.8</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                </div>
 
-                <!-- Input & Logic -->
-                <section>
-                    <h3 class="text-xl font-semibold text-white mb-4 border-l-4 border-yellow-500 pl-3">Controls & Logic</h3>
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">IF_KEY</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Runs code if key held (SPACE, UP, DOWN, LEFT, RIGHT, WASD).</p>
-                            <input type="text" value="IF_KEY SPACE ADD_VEL player 0 -5" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">IF_CLICK</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Runs code if mouse clicked. Use 'mouse_x' and 'mouse_y'.</p>
-                            <input type="text" value="IF_CLICK PARTICLE mouse_x mouse_y 10 #fff" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">IF_COLLIDE</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Runs code if two objects touch.</p>
-                            <input type="text" value="IF_COLLIDE player coin DESTROY coin" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                         <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">IF_GROUNDED</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Runs code if object is standing on a solid.</p>
-                            <input type="text" value="IF_GROUNDED player ADD_VEL player 0 -10" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
+                <div class="help-section">
+                    <div class="help-title">Physics & Animation</div>
+                    <p class="help-desc">Add life to your objects.</p>
+                    
+                    <div class="mb-3">
+                        <div class="help-cmd">spin name x y z</div>
+                        <div class="help-desc">Continuous rotation speed.</div>
+                        <div class="help-example"><span>spin coin 0 0.1 0</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
                     </div>
-                </section>
+                    <div class="mb-3">
+                        <div class="help-cmd">bounce name speed amp</div>
+                        <div class="help-desc">Float up and down (Sine wave).</div>
+                        <div class="help-example"><span>bounce item 2 0.5</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">physics name true</div>
+                        <div class="help-desc">Enable simple gravity/floor collision.</div>
+                    </div>
+                </div>
 
-                <!-- Effects -->
-                <section>
-                    <h3 class="text-xl font-semibold text-white mb-4 border-l-4 border-red-500 pl-3">Audio & Effects</h3>
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">PLAY_SOUND</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Plays a sound effect. Options: jump, coin, explosion, hit, powerup.</p>
-                            <input type="text" value="PLAY_SOUND jump" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">PARTICLE</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Spawns an explosion of dots at X Y. Format: X Y Count Color.</p>
-                            <input type="text" value="PARTICLE 200 200 20 #ff0000" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">FILTER</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Applies screen effect. Try: 'blur(5px)', 'sepia(1)', or 'none'.</p>
-                            <input type="text" value="FILTER blur(2px)" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                         <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">CAM_FOLLOW</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Makes the camera center on this object.</p>
-                            <input type="text" value="CAM_FOLLOW player" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">CAM_ZOOM</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Sets camera zoom level. 1.0 is default.</p>
-                            <input type="text" value="CAM_ZOOM 1.5" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">CAM_SHAKE</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Shakes the screen with intensity.</p>
-                            <input type="text" value="CAM_SHAKE 10" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
+                <div class="help-section">
+                    <div class="help-title">Interaction & IO</div>
+                    <p class="help-desc">Handle user input and output.</p>
+                    
+                    <div class="mb-3">
+                        <div class="help-cmd">input key "code"</div>
+                        <div class="help-example"><span>input w "move player 0 0 -0.5"</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
                     </div>
-                </section>
+                    <div class="mb-3">
+                        <div class="help-cmd">event name click "code"</div>
+                        <div class="help-example"><span>event btn click "call startGame"</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">print "Message"</div>
+                        <div class="help-example"><span>print 'Score: ' + $score</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="help-cmd">sound freq type</div>
+                        <div class="help-desc">Types: sine, square, sawtooth, triangle.</div>
+                        <div class="help-example"><span>sound 440 sine</span><button class="copy-btn" onclick="copyText(this)">COPY</button></div>
+                    </div>
+                </div>
 
-                <!-- UI & Data -->
-                <section>
-                    <h3 class="text-xl font-semibold text-white mb-4 border-l-4 border-green-500 pl-3">UI & Data</h3>
-                    <div class="grid gap-4 md:grid-cols-2">
-                         <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">UI_TEXT</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Draws text. Use underscores for spaces. Use $var for data.</p>
-                            <input type="text" value="UI_TEXT 20 20 Score:_$score #fff 24px" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">SET</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Creates or changes a variable.</p>
-                            <input type="text" value="SET score 0" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">ADD</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Adds a number to a variable.</p>
-                            <input type="text" value="ADD score 1" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">SAVE_GAME</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Saves variables to local storage.</p>
-                            <input type="text" value="SAVE_GAME" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">LOAD_GAME</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Loads variables from local storage.</p>
-                            <input type="text" value="LOAD_GAME" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                        <div class="bg-slate-800 p-4 rounded border border-slate-700">
-                            <div class="flex justify-between mb-2"><h4 class="font-mono text-green-400 font-bold">LOG</h4><button onclick="copyFromInput(this)" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">Copy</button></div>
-                            <p class="text-sm text-slate-400 mb-2">Prints a message to the small console.</p>
-                            <input type="text" value="LOG Level_started" class="w-full bg-black/30 border border-slate-600 rounded px-2 py-1 text-sm font-mono text-pink-300">
-                        </div>
-                    </div>
-                </section>
+                <div class="help-section">
+                    <div class="help-title">Math Functions</div>
+                    <p class="help-desc">Use in any numeric field or variable.</p>
+                    <ul class="list-disc ml-5 text-sm text-slate-400">
+                        <li><code>random(min, max)</code></li>
+                        <li><code>sin(value)</code></li>
+                        <li><code>cos(value)</code></li>
+                        <li>Standard math: <code>+ - * /</code></li>
+                    </ul>
+                </div>
+
             </div>
         </div>
-    </div>
+
+    </main>
 
     <script>
-        // --- 1. GAME ENGINE CONSTANTS & STATE ---
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const consoleText = document.getElementById('consoleText');
-        const entityCountSpan = document.getElementById('entityCount');
-        const fpsCountSpan = document.getElementById('fpsCount');
-        const codeEditor = document.getElementById('codeEditor');
-        const codeBackdrop = document.getElementById('codeBackdrop');
-        
-        let entities = {};
-        let textures = {};
-        let variables = {};
-        let particles = [];
-        let uiElements = [];
-        let isRunning = false;
-        let activeKeys = new Set();
-        let animationFrameId;
-        let lastTime = 0;
-        let mouseX = 0, mouseY = 0;
-        let mouseClicked = false;
-        
-        // Editor State
-        let draggingState = null; 
-        let debounceTimer = null;
-        let editorCamera = { x: 0, y: 0 };
-        let isPanning = false;
-        let panStart = { x: 0, y: 0 };
-        
-        // Valid Commands for Syntax Highlight
+        const $ = (id) => document.getElementById(id);
+
+        function copyText(btn) {
+            const text = btn.previousElementSibling.innerText;
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            
+            const original = btn.innerText;
+            btn.innerText = 'OK!';
+            btn.style.color = '#4ade80';
+            btn.style.borderColor = '#4ade80';
+            setTimeout(() => {
+                btn.innerText = 'COPY';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            }, 1000);
+        }
+
+        // --- EDITOR VALIDATION ---
         const VALID_COMMANDS = new Set([
-            'SETUP', 'LOOP', 'CREATE', 'CLONE', 'DESTROY', 'TEXTURE', 'COLOR', 
-            'PHYSICS', 'SOLID', 'GRAVITY', 'FRICTION', 'VELOCITY', 'ADD_VEL', 
-            'MOVE', 'ROTATE', 'CAM_FOLLOW', 'CAM_ZOOM', 'CAM_SHAKE', 
-            'IF_KEY', 'IF_GROUNDED', 'IF_CLICK', 'IF_COLLIDE', 
-            'PLAY_SOUND', 'PARTICLE', 'FILTER', 'SET', 'ADD', 'UI_TEXT', 
-            'SAVE_GAME', 'LOAD_GAME', 'LOG'
+            'var', 'set', 'if', 'loop', 'func', 'call', 'wait', 'print', 
+            'cube', 'sphere', 'cylinder', 'cone', 'plane', 'light', 'label', 
+            'move', 'teleport', 'spin', 'bounce', 'physics', 'destroy', 
+            'color', 'prop', 'sound', 'event', 'input'
         ]);
 
-        // Physics & Camera State
-        let gravity = 0;
-        let friction = 0.9;
-        let camera = { x: 0, y: 0, target: null, zoom: 1, shake: 0 };
-        let screenFilter = "none";
+        const Editor = {
+            update: () => {
+                const text = $('code-editor').value;
+                const lines = text.split('\n');
+                let html = '';
 
-        // Audio Context
-        let audioCtx = null;
-        function initAudio() { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-
-        // --- 2. INPUT SYSTEM & EDITOR DRAG ---
-        window.addEventListener('keydown', (e) => { 
-            if(isRunning) { const k = mapKey(e.code); if(k) activeKeys.add(k); }
-            if(!isRunning && e.code === 'Space') canvas.style.cursor = 'grab';
-        });
-        window.addEventListener('keyup', (e) => { 
-            const k = mapKey(e.code); if(k) activeKeys.delete(k); 
-            if(!isRunning && e.code === 'Space') { canvas.style.cursor = 'default'; isPanning = false; }
-        });
-        
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const rawX = (e.clientX - rect.left) / (rect.width / canvas.width);
-            const rawY = (e.clientY - rect.top) / (rect.height / canvas.height);
-            
-            const camX = isRunning ? camera.x : editorCamera.x;
-            const camY = isRunning ? camera.y : editorCamera.y;
-            const zoom = isRunning ? camera.zoom : 1;
-
-            const worldX = (rawX / zoom) + camX - (canvas.width/2/zoom);
-            const worldY = (rawY / zoom) + camY - (canvas.height/2/zoom);
-            
-            mouseX = worldX;
-            mouseY = worldY;
-
-            // Editor Pan Logic
-            if (!isRunning && isPanning) {
-                editorCamera.x = panStart.camX - (rawX - panStart.mouseX);
-                editorCamera.y = panStart.camY - (rawY - panStart.mouseY);
-                drawPreview();
-                return;
+                lines.forEach(line => {
+                    const clean = line.trim();
+                    if(!clean || clean.startsWith('#')) {
+                        html += `<div>${line || ' '}</div>`; // Preserve empty lines/indent
+                        return;
+                    }
+                    
+                    const firstWord = clean.split(/\s+/)[0].toLowerCase();
+                    const isValid = VALID_COMMANDS.has(firstWord);
+                    
+                    if (isValid) {
+                        html += `<div>${line}</div>`;
+                    } else {
+                        html += `<div class="line-error">${line}</div>`;
+                    }
+                });
+                
+                // Add extra newline to match textarea behavior
+                if(text.endsWith('\n')) html += '<div> </div>';
+                
+                $('code-backdrop').innerHTML = html;
+            },
+            syncScroll: () => {
+                $('code-backdrop').scrollTop = $('code-editor').scrollTop;
+                $('code-backdrop').scrollLeft = $('code-editor').scrollLeft;
             }
+        };
 
-            // Editor Drag Logic
-            if (!isRunning && draggingState) {
-                draggingState.currentX = Math.round(mouseX - draggingState.offsetX);
-                draggingState.currentY = Math.round(mouseY - draggingState.offsetY);
-                drawPreview(); 
-            } else if (!isRunning) {
-                canvas.style.cursor = activeKeys.has('SPACE') ? 'grab' : (getEntityAt(mouseX, mouseY) ? 'move' : 'default');
+        // --- DATA ---
+        const DB = {
+            games: JSON.parse(localStorage.getItem('vs9_games')) || [],
+            save: () => localStorage.setItem('vs9_games', JSON.stringify(DB.games)),
+        };
+
+        // --- 3D ENGINE ---
+        const Engine = {
+            scene: null, camera: null, renderer: null, raycaster: null, mouse: null,
+            objects: {}, labels: [], selectedObj: null,
+            isDragging: false, isOrbiting: false, dragPlane: null,
+            lastMouseX: 0, lastMouseY: 0,
+            camTheta: Math.PI / 4, camPhi: Math.PI / 3, camRadius: 15,
+            
+            updatables: [], 
+            skyColor: '#050505', ambientIntensity: 0.5, sunIntensity: 1.0,
+            eventMap: {}, inputMap: {}, audioCtx: null,
+
+            init: () => {
+                const container = $('canvas-container');
+                Engine.scene = new THREE.Scene();
+                Engine.scene.background = new THREE.Color(Engine.skyColor);
+                
+                Engine.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+                Engine.updateCameraPos();
+
+                Engine.renderer = new THREE.WebGLRenderer({ antialias: true });
+                Engine.renderer.setSize(container.clientWidth, container.clientHeight);
+                Engine.renderer.shadowMap.enabled = true;
+                container.appendChild(Engine.renderer.domElement);
+
+                Engine.raycaster = new THREE.Raycaster();
+                Engine.mouse = new THREE.Vector2();
+                Engine.dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+                // Grid
+                const grid = new THREE.GridHelper(40, 40, 0x333333, 0x111111);
+                grid.position.y = -0.01;
+                Engine.scene.add(grid);
+                
+                // Lights
+                Engine.ambientLight = new THREE.AmbientLight(0xffffff, Engine.ambientIntensity);
+                Engine.scene.add(Engine.ambientLight);
+                Engine.sunLight = new THREE.DirectionalLight(0xffffff, Engine.sunIntensity);
+                Engine.sunLight.position.set(10, 20, 10);
+                Engine.sunLight.castShadow = true;
+                Engine.scene.add(Engine.sunLight);
+
+                try { Engine.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+
+                window.addEventListener('resize', Engine.onResize);
+                container.addEventListener('mousedown', Engine.onMouseDown);
+                container.addEventListener('mousemove', Engine.onMouseMove);
+                container.addEventListener('mouseup', Engine.onMouseUp);
+                container.addEventListener('mouseleave', Engine.onMouseUp);
+                container.addEventListener('wheel', Engine.onWheel);
+                container.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    const intersect = Engine.getIntersect(e);
+                    if(intersect) CodeManager.deleteObject(intersect.object.userData.name);
+                });
+                
+                window.addEventListener('keydown', (e) => {
+                    if(document.activeElement === $('code-editor')) return;
+                    const key = e.key.toLowerCase();
+                    if(Engine.inputMap[key] || Engine.inputMap[e.code.toLowerCase()]) {
+                        CodeManager.executeOneLine(Engine.inputMap[key] || Engine.inputMap[e.code.toLowerCase()]);
+                    }
+                });
+
+                Engine.animate();
+            },
+
+            playSound: (freq, type, dur=0.1) => {
+                if(!Engine.audioCtx) return;
+                const osc = Engine.audioCtx.createOscillator();
+                const gain = Engine.audioCtx.createGain();
+                osc.type = type || 'sine';
+                osc.frequency.setValueAtTime(parseFloat(freq), Engine.audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, Engine.audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, Engine.audioCtx.currentTime + dur);
+                osc.connect(gain);
+                gain.connect(Engine.audioCtx.destination);
+                osc.start();
+                osc.stop(Engine.audioCtx.currentTime + dur);
+            },
+
+            updateCameraPos: () => {
+                Engine.camera.position.x = Engine.camRadius * Math.sin(Engine.camPhi) * Math.cos(Engine.camTheta);
+                Engine.camera.position.y = Engine.camRadius * Math.cos(Engine.camPhi);
+                Engine.camera.position.z = Engine.camRadius * Math.sin(Engine.camPhi) * Math.sin(Engine.camTheta);
+                Engine.camera.lookAt(0, 0, 0);
+            },
+
+            onResize: () => {
+                const c = $('canvas-container');
+                if(!c || !Engine.camera) return;
+                Engine.camera.aspect = c.clientWidth / c.clientHeight;
+                Engine.camera.updateProjectionMatrix();
+                Engine.renderer.setSize(c.clientWidth, c.clientHeight);
+            },
+
+            getIntersect: (event) => {
+                const rect = $('canvas-container').getBoundingClientRect();
+                Engine.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                Engine.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                Engine.raycaster.setFromCamera(Engine.mouse, Engine.camera);
+                const meshes = [];
+                Engine.scene.traverse(o => { if(o.isMesh && o.userData.name) meshes.push(o); });
+                return Engine.raycaster.intersectObjects(meshes)[0];
+            },
+
+            onMouseDown: (e) => {
+                if(e.button !== 0) return;
+                const intersect = Engine.getIntersect(e);
+                if (intersect) {
+                    const name = intersect.object.userData.name;
+                    if (Engine.eventMap[name] && Engine.eventMap[name]['click']) {
+                        CodeManager.executeOneLine(Engine.eventMap[name]['click']);
+                    }
+                    Engine.selectObject(intersect.object);
+                    Engine.isDragging = true;
+                } else {
+                    Engine.selectObject(null);
+                    Engine.isOrbiting = true;
+                }
+                Engine.lastMouseX = e.clientX;
+                Engine.lastMouseY = e.clientY;
+            },
+
+            onMouseMove: (e) => {
+                const deltaX = e.clientX - Engine.lastMouseX;
+                const deltaY = e.clientY - Engine.lastMouseY;
+                Engine.lastMouseX = e.clientX;
+                Engine.lastMouseY = e.clientY;
+
+                if (Engine.isDragging && Engine.selectedObj) {
+                    const rect = $('canvas-container').getBoundingClientRect();
+                    Engine.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                    Engine.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                    Engine.raycaster.setFromCamera(Engine.mouse, Engine.camera);
+                    const target = new THREE.Vector3();
+                    Engine.raycaster.ray.intersectPlane(Engine.dragPlane, target);
+                    if (target) {
+                        const snap = (v) => Math.round(v * 10) / 10;
+                        const nx = snap(target.x);
+                        const nz = snap(target.z);
+                        Engine.selectedObj.position.x = nx;
+                        Engine.selectedObj.position.z = nz;
+                        if(Engine.selectedObj.userData.linkedLight) {
+                            Engine.selectedObj.userData.linkedLight.position.set(nx, Engine.selectedObj.position.y, nz);
+                        }
+                        CodeManager.updateProperties(Engine.selectedObj.userData.name, {x:nx, z:nz});
+                        Inspector.updateValues();
+                    }
+                } 
+                else if (Engine.isOrbiting) {
+                    Engine.camTheta -= deltaX * 0.01;
+                    Engine.camPhi -= deltaY * 0.01;
+                    Engine.camPhi = Math.max(0.1, Math.min(Math.PI - 0.1, Engine.camPhi));
+                    Engine.updateCameraPos();
+                }
+            },
+
+            onMouseUp: () => { Engine.isDragging = false; Engine.isOrbiting = false; },
+            onWheel: (e) => {
+                e.preventDefault();
+                Engine.camRadius += e.deltaY * 0.02;
+                Engine.camRadius = Math.max(2, Math.min(60, Engine.camRadius));
+                Engine.updateCameraPos();
+            },
+
+            selectObject: (obj) => {
+                if(Engine.selectedObj) {
+                    if(Engine.selectedObj.userData.helper) {
+                         Engine.selectedObj.material.color.setHex(0xffff00);
+                    } else if (Engine.selectedObj.material.emissive) {
+                        Engine.selectedObj.material.emissive.setHex(0x000000);
+                    }
+                }
+                Engine.selectedObj = obj;
+                Inspector.render(obj);
+                if(obj) {
+                    if(obj.userData.helper) {
+                        obj.material.color.setHex(0xffaa00);
+                    } else if (obj.material.emissive) {
+                        obj.material.emissive.setHex(0x333333);
+                    }
+                    Engine.dragPlane.constant = -obj.position.y;
+                }
+                document.querySelectorAll('.obj-item').forEach(el => el.classList.remove('selected'));
+                if(obj) {
+                    const el = document.getElementById(`li-${obj.userData.name}`);
+                    if(el) { el.classList.add('selected'); el.scrollIntoView({block: 'nearest'}); }
+                }
+            },
+
+            createMesh: (geo, mat, name, pos) => {
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(pos.x, pos.y, pos.z);
+                mesh.userData.name = name;
+                mesh.castShadow = true;
+                Engine.objects[name] = mesh;
+                Engine.scene.add(mesh);
+                return mesh;
+            },
+
+            clearScene: () => {
+                Engine.selectObject(null);
+                const toRemove = [];
+                Engine.scene.traverse(c => { if(c.isMesh || c.isPointLight) toRemove.push(c); });
+                toRemove.forEach(c => Engine.scene.remove(c));
+                Engine.objects = {};
+                Engine.labels = [];
+                Engine.updatables = [];
+                Engine.eventMap = {};
+                Engine.inputMap = {};
+                CodeManager.variables = {};
+                $('scene-list').innerHTML = '';
+                $('label-layer').innerHTML = '';
+                $('console-output').innerHTML = '';
+            },
+
+            animate: () => {
+                requestAnimationFrame(Engine.animate);
+                
+                const time = Date.now() * 0.001;
+                Engine.updatables.forEach(item => {
+                    const obj = Engine.objects[item.name];
+                    if(!obj) return;
+                    if(item.type === 'spin') {
+                        obj.rotation.x += item.x;
+                        obj.rotation.y += item.y;
+                        obj.rotation.z += item.z;
+                    }
+                    if(item.type === 'bounce') {
+                        const yBase = item.yBase || obj.position.y;
+                        item.yBase = yBase; 
+                        obj.position.y = yBase + Math.sin(time * item.speed) * item.amp;
+                        if(obj.userData.linkedLight) obj.userData.linkedLight.position.y = obj.position.y;
+                    }
+                    if(item.type === 'physics') {
+                        // Simple Gravity
+                        if(obj.position.y > 0.5) {
+                            obj.position.y -= 0.1; 
+                            if(obj.position.y < 0.5) obj.position.y = 0.5; // Floor hit
+                        }
+                    }
+                });
+
+                Engine.labels.forEach(lbl => {
+                    const pos = new THREE.Vector3(lbl.x, lbl.y, lbl.z);
+                    pos.project(Engine.camera);
+                    const x = (pos.x * .5 + .5) * $('canvas-container').clientWidth;
+                    const y = (pos.y * -.5 + .5) * $('canvas-container').clientHeight;
+                    
+                    if(pos.z > 1) { 
+                        lbl.el.style.display = 'none'; 
+                    } else {
+                        lbl.el.style.display = 'block';
+                        lbl.el.style.left = x + 'px';
+                        lbl.el.style.top = y + 'px';
+                    }
+                });
+
+                Engine.renderer.render(Engine.scene, Engine.camera);
             }
-        });
+        };
 
-        canvas.addEventListener('mousedown', (e) => { 
-            initAudio();
-            if (isRunning) {
-                mouseClicked = true; 
-            } else {
-                if(activeKeys.has('SPACE')) {
-                    isPanning = true;
-                    const rect = canvas.getBoundingClientRect();
-                    panStart = {
-                        mouseX: (e.clientX - rect.left) / (rect.width / canvas.width),
-                        mouseY: (e.clientY - rect.top) / (rect.height / canvas.height),
-                        camX: editorCamera.x,
-                        camY: editorCamera.y
-                    };
-                    canvas.style.cursor = 'grabbing';
+        // --- UI ---
+        const Inspector = {
+            render: (obj) => {
+                const p = $('inspector-content');
+                if(!obj) {
+                    p.innerHTML = `
+                        <div class="mb-4 pb-2 border-b border-slate-700 font-bold text-xs text-cyan-400">SCENE</div>
+                        ${Inspector.row('Sky', `<input type="color" class="insp-color" value="${'#'+Engine.scene.background.getHexString()}" onchange="Inspector.setEnv('sky', this.value)">`)}
+                        ${Inspector.row('Sun', `<input type="number" class="insp-input" value="${Engine.sunLight.intensity}" step="0.1" onchange="Inspector.setEnv('sun', this.value)">`)}
+                        ${Inspector.row('Ambient', `<input type="number" class="insp-input" value="${Engine.ambientLight.intensity}" step="0.1" onchange="Inspector.setEnv('ambient', this.value)">`)}
+                    `;
                     return;
                 }
-
-                const clicked = getEntityAt(mouseX, mouseY);
-                if (clicked) {
-                    draggingState = {
-                        name: clicked.name,
-                        offsetX: mouseX - clicked.x,
-                        offsetY: mouseY - clicked.y,
-                        currentX: clicked.x,
-                        currentY: clicked.y
-                    };
+                const d = obj.userData;
+                const isLight = d.type === 'light';
+                let html = `
+                    <div class="mb-4 pb-2 border-b border-slate-700 font-bold text-xs text-white break-all">${d.name} <span class="text-slate-500 font-normal">(${d.type})</span></div>
+                    ${Inspector.row('Pos X', `<input id="insp-x" type="number" class="insp-input" value="${obj.position.x}" step="0.1" onchange="Inspector.update('pos')">`)}
+                    ${Inspector.row('Pos Y', `<input id="insp-y" type="number" class="insp-input" value="${obj.position.y}" step="0.1" onchange="Inspector.update('pos')">`)}
+                    ${Inspector.row('Pos Z', `<input id="insp-z" type="number" class="insp-input" value="${obj.position.z}" step="0.1" onchange="Inspector.update('pos')">`)}
+                `;
+                if(!isLight && d.type !== 'wall') html += Inspector.row('Scale', `<input id="insp-scale" type="number" class="insp-input" value="${obj.scale.x}" step="0.1" onchange="Inspector.update('scale')">`);
+                
+                if(isLight) {
+                    html += Inspector.row('Inten', `<input id="insp-int" type="number" class="insp-input" value="${d.linkedLight.intensity}" step="0.1" onchange="Inspector.update('light')">`);
+                    html += Inspector.row('Color', `<input id="insp-col" type="color" class="insp-color" value="${'#'+d.linkedLight.color.getHexString()}" onchange="Inspector.update('light')">`);
+                } else {
+                    const col = obj.material.color ? '#'+obj.material.color.getHexString() : '#ffffff';
+                    html += Inspector.row('Color', `<input id="insp-col" type="color" class="insp-color" value="${col}" onchange="Inspector.update('color')">`);
+                }
+                p.innerHTML = html;
+            },
+            row: (l, i) => `<div class="insp-row"><span class="insp-label">${l}</span>${i}</div>`,
+            updateValues: () => {
+                if(!Engine.selectedObj) return;
+                const o = Engine.selectedObj;
+                if($('insp-x')) $('insp-x').value = o.position.x;
+                if($('insp-z')) $('insp-z').value = o.position.z;
+            },
+            setEnv: (t, v) => {
+                if(t === 'sky') Engine.scene.background.set(v);
+                if(t === 'sun') Engine.sunLight.intensity = parseFloat(v);
+                if(t === 'ambient') Engine.ambientLight.intensity = parseFloat(v);
+            },
+            update: (t) => {
+                const o = Engine.selectedObj; if(!o) return;
+                const n = o.userData.name;
+                if(t === 'pos') {
+                    const x = parseFloat($('insp-x').value), y = parseFloat($('insp-y').value), z = parseFloat($('insp-z').value);
+                    o.position.set(x,y,z); if(o.userData.linkedLight) o.userData.linkedLight.position.set(x,y,z);
+                    CodeManager.updateProperties(n, {x,y,z});
+                }
+                if(t === 'scale') {
+                    const s = parseFloat($('insp-scale').value); o.scale.set(s,s,s);
+                    CodeManager.updateProperties(n, {scale:s});
+                }
+                if(t === 'color') {
+                    const c = $('insp-col').value; if(o.material) o.material.color.set(c);
+                    CodeManager.updateProperties(n, {color:c});
+                }
+                if(t === 'light') {
+                    const i = parseFloat($('insp-int').value), c = $('insp-col').value;
+                    if(o.userData.linkedLight) { o.userData.linkedLight.intensity = i; o.userData.linkedLight.color.set(c); }
+                    CodeManager.updateProperties(n, {intensity:i, color:c});
                 }
             }
-        });
+        };
 
-        canvas.addEventListener('mouseup', () => { 
-            mouseClicked = false;
-            isPanning = false;
-            if(!activeKeys.has('SPACE') && !isRunning) canvas.style.cursor = 'default';
+        const Layout = {
+            state: { outliner: true, inspector: true },
+            toggle: (panel) => {
+                Layout.state[panel] = !Layout.state[panel];
+                const btn = $(`btn-toggle-${panel}`);
+                if(Layout.state[panel]) btn.classList.add('active'); else btn.classList.remove('active');
+                const pOut = $('panel-outliner'), pInsp = $('panel-inspector'), sb = $('right-sidebar');
 
-            if (!isRunning && draggingState) {
-                const finalEnt = { name: draggingState.name, x: draggingState.currentX, y: draggingState.currentY };
-                updateScriptCoordinates(finalEnt);
-                draggingState = null;
-                setTimeout(drawPreview, 10); 
-            }
-        });
-
-        function getEntityAt(mx, my) {
-            const keys = Object.keys(entities).reverse();
-            for (let key of keys) {
-                const e = entities[key];
-                if (mx >= e.x && mx <= e.x + e.w && my >= e.y && my <= e.y + e.h) {
-                    return e;
+                if (!Layout.state.outliner && !Layout.state.inspector) {
+                    sb.style.width = '0px'; sb.style.borderLeftWidth = '0px';
+                } else {
+                    sb.style.width = '15rem'; sb.style.borderLeftWidth = '1px';
+                    if (Layout.state.outliner && Layout.state.inspector) {
+                        pOut.style.display = 'flex'; pOut.style.height = '50%';
+                        pInsp.style.display = 'flex'; pInsp.style.height = '50%';
+                    } else if (Layout.state.outliner) {
+                        pOut.style.display = 'flex'; pOut.style.height = '100%';
+                        pInsp.style.display = 'none';
+                    } else {
+                        pOut.style.display = 'none';
+                        pInsp.style.display = 'flex'; pInsp.style.height = '100%';
+                    }
                 }
+                setTimeout(Engine.onResize, 350);
             }
-            return null;
-        }
+        };
 
-        function mapKey(code) {
-            if (code === 'ArrowUp' || code === 'KeyW') return 'UP';
-            if (code === 'ArrowDown' || code === 'KeyS') return 'DOWN';
-            if (code === 'ArrowLeft' || code === 'KeyA') return 'LEFT';
-            if (code === 'ArrowRight' || code === 'KeyD') return 'RIGHT';
-            if (code === 'Space') return 'SPACE';
-            return null;
-        }
+        // --- CODE MANAGER ---
+        const CodeManager = {
+            variables: {}, functions: {}, executionId: 0, isRunning: false,
 
-        // --- 3. ENTITIES ---
-        class Entity {
-            constructor(name, x, y, w, h) {
-                this.name = name;
-                this.x = x; this.y = y; this.w = w; this.h = h;
-                this.vx = 0; this.vy = 0;
-                this.color = '#a855f7';
-                this.texture = null;
-                this.rotation = 0;
-                this.physics = false;
-                this.solid = false;
-                this.grounded = false;
-                this.destroyed = false;
-            }
+            toggleRun: () => {
+                if (CodeManager.isRunning) {
+                    CodeManager.stop();
+                } else {
+                    CodeManager.run();
+                }
+            },
 
-            checkCollision(other) {
-                return (this.x < other.x + other.w &&
-                        this.x + this.w > other.x &&
-                        this.y < other.y + other.h &&
-                        this.h + this.y > other.y);
-            }
+            stop: () => {
+                CodeManager.isRunning = false;
+                CodeManager.executionId++;
+                $('btn-compile').innerHTML = '<i class="fa-solid fa-play mr-1"></i> RUN';
+                $('btn-compile').classList.replace('bg-red-600', 'bg-green-600');
+                $('btn-compile').classList.replace('hover:bg-red-500', 'hover:bg-green-500');
+            },
 
-            update(allEntities) {
-                if (this.physics) {
-                    this.vy += gravity;
-                    this.vx *= friction;
-                    this.vy *= friction;
+            run: async () => {
+                CodeManager.stop(); // Ensure clean slate
+                CodeManager.isRunning = true;
+                CodeManager.executionId++;
+                const myId = CodeManager.executionId;
+                
+                $('btn-compile').innerHTML = '<i class="fa-solid fa-stop mr-1"></i> STOP';
+                $('btn-compile').classList.replace('bg-green-600', 'bg-red-600');
+                $('btn-compile').classList.replace('hover:bg-green-500', 'hover:bg-red-500');
 
-                    this.x += this.vx;
-                    for (let key in allEntities) {
-                        let other = allEntities[key];
-                        if (other !== this && other.solid && !other.destroyed && this.checkCollision(other)) {
-                            if (this.vx > 0) this.x = other.x - this.w; 
-                            else if (this.vx < 0) this.x = other.x + other.w; 
-                            this.vx = 0;
+                Engine.clearScene();
+                CodeManager.log("System", "Script started...");
+                
+                const rawCode = $('code-editor').value;
+                const processedCode = CodeManager.preprocess(rawCode);
+                const lines = processedCode.split('\n');
+
+                for (const line of lines) {
+                    if (CodeManager.executionId !== myId) break;
+                    await CodeManager.executeOneLine(line);
+                }
+                
+                if (CodeManager.executionId === myId) {
+                    CodeManager.log("System", "Script finished.");
+                }
+            },
+
+            log: (src, msg) => {
+                const div = document.createElement('div');
+                div.className = `log-msg ${src === 'Error' ? 'error' : 'info'}`;
+                div.innerHTML = `<span class="opacity-50">[${new Date().toLocaleTimeString().split(' ')[0]}]</span> <b>${src}:</b> ${msg}`;
+                $('console-output').prepend(div);
+            },
+
+            processExpr: (str) => {
+                // Replace variables
+                Object.keys(CodeManager.variables).forEach(v => {
+                    str = str.replaceAll('$' + v, CodeManager.variables[v]);
+                });
+                // Replace math
+                str = str.replace(/random\(([^,]+),([^)]+)\)/g, (m,a,b) => (Math.random() * (parseFloat(b) - parseFloat(a)) + parseFloat(a)).toFixed(2));
+                str = str.replace(/sin\(([^)]+)\)/g, (m,a) => Math.sin(eval(a)).toFixed(2));
+                str = str.replace(/cos\(([^)]+)\)/g, (m,a) => Math.cos(eval(a)).toFixed(2));
+                return str;
+            },
+
+            preprocess: (code) => {
+                CodeManager.variables = {}; CodeManager.functions = {};
+                let lines = code.split('\n');
+                let output = [];
+
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i].trim();
+                    if(!line || line.startsWith('#')) continue;
+
+                    // Functions
+                    if(line.startsWith('func ')) {
+                        const name = line.split(' ')[1];
+                        let block = []; i++;
+                        while(i < lines.length && !lines[i].trim().includes('}')) { block.push(lines[i].trim()); i++; }
+                        CodeManager.functions[name] = block;
+                        continue;
+                    }
+
+                    // Loop unroll
+                    if(line.startsWith('loop ')) {
+                        const parts = line.split(/\s+/);
+                        const count = parseInt(parts[1]);
+                        const iterator = parts[2];
+                        let block = []; i++;
+                        while(i < lines.length && !lines[i].trim().includes('}')) { block.push(lines[i].trim()); i++; }
+                        
+                        for(let iter=0; iter<count; iter++) {
+                            block.forEach(l => {
+                                output.push(l.replaceAll('$' + iterator, iter));
+                            });
+                        }
+                        continue;
+                    }
+                    output.push(line);
+                }
+                return output.join('\n');
+            },
+
+            executeOneLine: async (line) => {
+                if(!line) return;
+                line = CodeManager.processExpr(line); // Resolve vars/math first
+
+                const parts = line.trim().match(/(?:[^\s']+|'[^']*')+/g); // Handle 'quotes'
+                if (!parts) return;
+                
+                const cmd = parts[0].toLowerCase();
+                const args = parts.slice(1);
+
+                try {
+                    // Logic
+                    if(cmd === 'wait') {
+                        const t = parseFloat(args[0]);
+                        if(!isNaN(t)) await new Promise(r => setTimeout(r, t * 1000));
+                        return;
+                    }
+                    if(cmd === 'set') {
+                        // set var = val
+                        const key = args[0];
+                        const val = eval(line.split('=')[1]);
+                        CodeManager.variables[key] = val;
+                        return;
+                    }
+                    if(cmd === 'var') { // Legacy support
+                        const key = args[0].replace('=', '');
+                        const val = eval(args[1] === '=' ? args[2] : args[1]);
+                        CodeManager.variables[key] = val;
+                        return;
+                    }
+                    if(cmd === 'print') {
+                        CodeManager.log("Game", args.join(' ').replace(/'/g, ''));
+                        return;
+                    }
+                    if(cmd === 'call') {
+                        const fn = CodeManager.functions[args[0]];
+                        if(fn) for(const l of fn) await CodeManager.executeOneLine(l);
+                        return;
+                    }
+                    if(cmd === 'if') {
+                        // if x > 10 { command } - Simplified to one line execution for now
+                        // Extract condition
+                        const content = line.substring(3);
+                        const brace = content.indexOf('{');
+                        const cond = content.substring(0, brace);
+                        const body = content.substring(brace+1, content.lastIndexOf('}'));
+                        if(eval(cond)) await CodeManager.executeOneLine(body);
+                        return;
+                    }
+
+                    // Engine Commands
+                    const getVal = (i) => parseFloat(args[i]) || 0;
+                    const getName = () => { const n = args.find(a => a.startsWith('name:')); return n ? n.split(':')[1] : `obj_${Object.keys(Engine.objects).length}`; };
+                    const getColor = () => { const c = args.find(a => !a.includes(':') && isNaN(parseFloat(a)) && !a.startsWith("'")); return c || 'white'; };
+
+                    if (['cube','box','sphere','cylinder','cone','plane'].includes(cmd)) {
+                        let geo;
+                        if(cmd === 'cube') geo = new THREE.BoxGeometry(1,1,1);
+                        else if(cmd === 'sphere') geo = new THREE.SphereGeometry(0.5,32,32);
+                        else if(cmd === 'cylinder') geo = new THREE.CylinderGeometry(0.5,0.5,1,32);
+                        else if(cmd === 'cone') geo = new THREE.ConeGeometry(0.5,1,32);
+                        else if(cmd === 'plane') geo = new THREE.PlaneGeometry(1,1);
+
+                        const mat = new THREE.MeshStandardMaterial({ color: getColor(), side: 2 });
+                        const mesh = Engine.createMesh(geo, mat, getName(), {x:getVal(0), y:getVal(1), z:getVal(2)});
+                        mesh.scale.setScalar(getVal(3)||1);
+                        if(cmd === 'plane') mesh.rotation.x = -Math.PI/2;
+                        mesh.userData.type = cmd;
+                        CodeManager.addUiItem(mesh.userData.name, cmd);
+                    }
+                    else if (cmd === 'light') {
+                        const i = parseFloat(args.find(a=>a.startsWith('intensity:'))?.split(':')[1]||1);
+                        const l = new THREE.PointLight(getColor(), i, 20);
+                        l.position.set(getVal(0), getVal(1), getVal(2));
+                        l.castShadow = true;
+                        const h = new THREE.Mesh(new THREE.OctahedronGeometry(0.3), new THREE.MeshBasicMaterial({color: 'yellow', wireframe: true}));
+                        h.position.copy(l.position); h.userData.name = getName(); h.userData.linkedLight = l; h.userData.helper = true; h.userData.type = 'light';
+                        Engine.scene.add(l); Engine.scene.add(h); Engine.objects[h.userData.name] = h;
+                        CodeManager.addUiItem(h.userData.name, 'light');
+                    }
+                    else if (cmd === 'label') {
+                        const txt = line.match(/'([^']+)'/)[1];
+                        const col = args[args.length-2]; const sz = parseFloat(args[args.length-1]);
+                        const el = document.createElement('div'); el.className = 'world-label'; el.innerText = txt; el.style.color = col; el.style.fontSize = (12*sz)+'px';
+                        $('label-layer').appendChild(el);
+                        Engine.labels.push({ el, x:getVal(0), y:getVal(1), z:getVal(2) });
+                    }
+                    else if(cmd === 'physics') {
+                        const name = args[0];
+                        if(Engine.objects[name]) Engine.updatables.push({ name, type: 'physics' });
+                    }
+                    else if(cmd === 'destroy') {
+                        const name = args[0]; const o = Engine.objects[name];
+                        if(o) { Engine.scene.remove(o); if(o.userData.linkedLight) Engine.scene.remove(o.userData.linkedLight); delete Engine.objects[name]; $(`li-${name}`)?.remove(); }
+                    }
+                    else if(cmd === 'move') {
+                        const o = Engine.objects[args[0]]; if(o) { o.position.x+=getVal(1); o.position.y+=getVal(2); o.position.z+=getVal(3); if(o.userData.linkedLight) o.userData.linkedLight.position.copy(o.position); }
+                    }
+                    else if(cmd === 'teleport') {
+                        const o = Engine.objects[args[0]]; if(o) { o.position.set(getVal(1), getVal(2), getVal(3)); if(o.userData.linkedLight) o.userData.linkedLight.position.copy(o.position); }
+                    }
+                    else if(cmd === 'spin') {
+                        Engine.updatables.push({ name: args[0], type: 'spin', x: getVal(1), y: getVal(2), z: getVal(3) });
+                    }
+                    else if(cmd === 'sound') {
+                        Engine.playSound(args[0], args[1]);
+                    }
+                    else if(cmd === 'event') {
+                        // event name trigger 'action'
+                        const target = args[0]; const trigger = args[1]; const action = line.match(/'([^']+)'/)[1];
+                        if(!Engine.eventMap[target]) Engine.eventMap[target] = {};
+                        Engine.eventMap[target][trigger] = action;
+                    }
+                    else if (cmd === 'color') {
+                        const target = args[0]; 
+                        const col = args[1];
+                        const obj = Engine.objects[target];
+                        if(obj) {
+                            if(obj.userData.helper) obj.userData.linkedLight.color.set(col);
+                            else if(obj.material) obj.material.color.set(col);
+                            if(Engine.selectedObj === obj) Inspector.render(obj);
+                        }
+                    }
+                    else if (cmd === 'prop') {
+                        const name = args[0]; 
+                        const key = args[1]; 
+                        const val = parseFloat(args[2]);
+                        const obj = Engine.objects[name];
+                        if(obj && obj.material) {
+                            if(key === 'metalness') obj.material.metalness = val;
+                            if(key === 'roughness') obj.material.roughness = val;
+                            if(key === 'opacity') { obj.material.opacity = val; obj.material.transparent = val < 1; }
                         }
                     }
 
-                    this.y += this.vy;
-                    this.grounded = false; 
-                    for (let key in allEntities) {
-                        let other = allEntities[key];
-                        if (other !== this && other.solid && !other.destroyed && this.checkCollision(other)) {
-                            if (this.vy > 0) { 
-                                this.y = other.y - this.h;
-                                this.grounded = true;
-                            } else if (this.vy < 0) { 
-                                this.y = other.y + other.h;
-                            }
-                            this.vy = 0;
+                } catch(e) { CodeManager.log('Error', e.message + " in: " + line); }
+            },
+
+            addUiItem: (name, type) => {
+                const div = document.createElement('div');
+                div.id = `li-${name}`; div.className = 'obj-item';
+                div.innerHTML = `<span><i class="fa-solid fa-cube obj-icon"></i>${name}</span>`;
+                div.onclick = () => Engine.selectObject(Engine.objects[name]);
+                $('scene-list').appendChild(div);
+            },
+
+            deleteObject: (name) => {
+                const editor = $('code-editor');
+                const lines = editor.value.split('\n');
+                editor.value = lines.filter(l => !l.includes(`name:${name}`) && !l.includes(` ${name} `)).join('\n');
+                // Re-run safely
+                CodeManager.toggleRun();
+            },
+
+            updateProperties: (name, changes) => {
+                // Regex based update to preserve user formatting
+                const editor = $('code-editor');
+                const lines = editor.value.split('\n');
+                const newLines = lines.map(line => {
+                    if (line.includes(`name:${name}`) || (!line.includes('name:') && line.includes(name))) {
+                        let parts = line.trim().split(/\s+/);
+                        if(changes.x!==undefined) parts[1] = changes.x;
+                        if(changes.y!==undefined) parts[2] = changes.y;
+                        if(changes.z!==undefined) parts[3] = changes.z;
+                        if(changes.scale!==undefined) parts[4] = changes.scale;
+                        if(changes.color) {
+                            // find color part
+                            const colIdx = parts.findIndex((p,i) => i>3 && !p.includes(':') && isNaN(parseFloat(p)));
+                            if(colIdx !== -1) parts[colIdx] = changes.color;
                         }
+                        if(changes.intensity!==undefined) {
+                            const intIdx = parts.findIndex(p => p.startsWith('intensity:'));
+                            if(intIdx !== -1) parts[intIdx] = `intensity:${changes.intensity}`;
+                        }
+                        return parts.join(' ');
                     }
+                    return line;
+                });
+                editor.value = newLines.join('\n');
+            },
+            
+            append: (str) => {
+                const editor = $('code-editor');
+                editor.value += (editor.value ? '\n' : '') + str;
+                CodeManager.run(); // Quick refresh
+            }
+        };
 
-                    if (this.y + this.h > 2000) { 
-                        this.y = 2000 - this.h;
-                        this.vy = 0;
-                        this.grounded = true;
+        const Toolbox = {
+            add: (type) => {
+                const id = Math.floor(Math.random() * 999);
+                let code = "";
+                if(type === 'cube') code = `cube 0 1 0 1 cyan name:cube${id}`;
+                if(type === 'sphere') code = `sphere 2 1 0 1 red name:sphere${id}`;
+                if(type === 'cylinder') code = `cylinder -2 1 0 1 lime name:cyl${id}`;
+                if(type === 'cone') code = `cone 0 2 0 1 yellow name:cone${id}`;
+                if(type === 'plane') code = `plane 0 0 0 5 gray name:floor${id}`;
+                if(type === 'light') code = `light 0 4 0 white intensity:1 name:light${id}`;
+                if(type === 'label') code = `label 0 3 0 'Text' white 1`;
+                CodeManager.append(code);
+            }
+        };
+
+        function switchTab(t) {
+            document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+            $('tab-' + t).classList.add('active');
+            if(t === 'create') setTimeout(Engine.onResize, 50);
+            
+            // Button Styles
+            ['create', 'studio', 'discovery', 'help'].forEach(tb => {
+                const btn = document.getElementById(`btn-${tb}`);
+                if(btn) {
+                    if(tb === t) {
+                        btn.classList.add('bg-cyan-600', 'text-white');
+                        btn.classList.remove('text-slate-400');
+                    } else {
+                        btn.classList.remove('bg-cyan-600', 'text-white');
+                        btn.classList.add('text-slate-400');
                     }
                 }
-            }
-
-            draw(ctx) {
-                if (this.destroyed) return;
-                ctx.save();
-                ctx.translate(Math.floor(this.x + this.w/2), Math.floor(this.y + this.h/2));
-                ctx.rotate(this.rotation * Math.PI / 180);
-                
-                if (this.texture && textures[this.texture]) {
-                    ctx.drawImage(textures[this.texture], -this.w/2, -this.h/2, this.w, this.h);
-                } else {
-                    ctx.fillStyle = this.color;
-                    ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
-                }
-                
-                if (!isRunning && draggingState && draggingState.name === this.name) {
-                    ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(-this.w/2, -this.h/2, this.w, this.h);
-                }
-                ctx.restore();
-            }
-        }
-
-        class Particle {
-            constructor(x, y, color) {
-                this.x = x; this.y = y; this.vx = (Math.random() - 0.5) * 5; this.vy = (Math.random() - 0.5) * 5; this.life = 1.0; this.color = color;
-            }
-            update() { this.x += this.vx; this.y += this.vy; this.life -= 0.02; }
-            draw(ctx) { ctx.globalAlpha = this.life; ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, 4, 4); ctx.globalAlpha = 1; }
-        }
-
-        // --- 4. PARSER ---
-        let setupLines = [];
-        let loopLines = [];
-
-        function parseScript(script) {
-            setupLines = []; loopLines = [];
-            let currentMode = 'SETUP';
-            script.split('\n').forEach(line => {
-                const clean = line.trim();
-                if(!clean || clean.startsWith('//')) return;
-                if(clean === 'SETUP') currentMode = 'SETUP';
-                else if(clean === 'LOOP') currentMode = 'LOOP';
-                else (currentMode === 'SETUP' ? setupLines : loopLines).push(clean);
             });
         }
 
-        function executeCommand(line) {
-            if(line.includes('$')) {
-                for(let k in variables) line = line.replace('$' + k, variables[k]);
-                line = line.replace('mouse_x', Math.floor(mouseX)).replace('mouse_y', Math.floor(mouseY));
-            }
-            const parts = line.split(/\s+/);
-            const cmd = parts[0].toUpperCase();
+        function runCode() { CodeManager.run(); }
 
-            try {
-                if (cmd === 'CREATE') { 
-                    const n = parts[1];
-                    const x = parts[2] !== undefined ? parseInt(parts[2]) : 0;
-                    const y = parts[3] !== undefined ? parseInt(parts[3]) : 0;
-                    const w = parts[4] !== undefined ? parseInt(parts[4]) : 32;
-                    const h = parts[5] !== undefined ? parseInt(parts[5]) : 32;
-                    if (!entities[n]) entities[n] = new Entity(n, isNaN(x)?0:x, isNaN(y)?0:y, isNaN(w)?32:w, isNaN(h)?32:h);
-                }
-                else if (cmd === 'CLONE') { 
-                    const src = entities[parts[1]];
-                    if(src && !entities[parts[2]]) {
-                        const c = new Entity(parts[2], src.x, src.y, src.w, src.h);
-                        c.texture=src.texture; c.color=src.color; c.physics=src.physics; c.solid=src.solid;
-                        entities[parts[2]] = c;
-                    }
-                }
-                else if (cmd === 'DESTROY') { if(entities[parts[1]]) { entities[parts[1]].destroyed = true; delete entities[parts[1]]; } }
-                else if (cmd === 'TEXTURE') { if(entities[parts[1]]) entities[parts[1]].texture = parts[2]; }
-                else if (cmd === 'COLOR') { if(entities[parts[1]]) entities[parts[1]].color = parts[2]; }
-                else if (cmd === 'PHYSICS') { if(entities[parts[1]]) entities[parts[1]].physics = (parts[2] === 'true'); }
-                else if (cmd === 'SOLID') { if(entities[parts[1]]) entities[parts[1]].solid = (parts[2] === 'true'); }
-                else if (cmd === 'GRAVITY') { gravity = parseFloat(parts[1]); }
-                else if (cmd === 'FRICTION') { friction = parseFloat(parts[1]); }
-                else if (cmd === 'VELOCITY') { if(entities[parts[1]]) { entities[parts[1]].vx = +parts[2]; entities[parts[1]].vy = +parts[3]; } }
-                else if (cmd === 'ADD_VEL') { if(entities[parts[1]]) { entities[parts[1]].vx += +parts[2]; entities[parts[1]].vy += +parts[3]; } }
-                else if (cmd === 'MOVE') { if(entities[parts[1]]) { entities[parts[1]].x += +parts[2]; entities[parts[1]].y += +parts[3]; } }
-                else if (cmd === 'ROTATE') { if(entities[parts[1]]) entities[parts[1]].rotation += +parts[2]; }
-                else if (cmd === 'CAM_FOLLOW') { if(entities[parts[1]]) camera.target = parts[1]; }
-                else if (cmd === 'CAM_ZOOM') { camera.zoom = parseFloat(parts[1]); }
-                else if (cmd === 'CAM_SHAKE') { camera.shake = parseInt(parts[1]); }
-                else if (cmd === 'IF_KEY') { if (activeKeys.has(parts[1])) executeCommand(parts.slice(2).join(' ')); }
-                else if (cmd === 'IF_GROUNDED') { if (entities[parts[1]]?.grounded) executeCommand(parts.slice(2).join(' ')); }
-                else if (cmd === 'IF_CLICK') { if (mouseClicked) { executeCommand(parts.slice(1).join(' ')); mouseClicked = false; } }
-                else if (cmd === 'IF_COLLIDE') {
-                    const e1 = entities[parts[1]], e2 = entities[parts[2]];
-                    if (e1 && e2 && !e1.destroyed && !e2.destroyed && e1.checkCollision(e2)) {
-                         executeCommand(parts.slice(3).join(' '));
-                    }
-                }
-                else if (cmd === 'PLAY_SOUND') { playSound(parts[1]); }
-                else if (cmd === 'PARTICLE') { for(let i=0; i<parseInt(parts[3]); i++) particles.push(new Particle(+parts[1], +parts[2], parts[4])); }
-                else if (cmd === 'FILTER') { screenFilter = parts.slice(1).join(' '); }
-                else if (cmd === 'SET') { variables[parts[1]] = parseFloat(parts[2]); }
-                else if (cmd === 'ADD') { variables[parts[1]] = (variables[parts[1]] || 0) + parseFloat(parts[2]); }
-                else if (cmd === 'UI_TEXT') { uiElements.push({ type:'text', x:+parts[1], y:+parts[2], content:parts[3].replace(/_/g, ' '), col:parts[4], size:parts[5] }); }
-                else if (cmd === 'SAVE_GAME') { localStorage.setItem('gemini_save', JSON.stringify(variables)); log("Game Saved."); }
-                else if (cmd === 'LOAD_GAME') { const d = localStorage.getItem('gemini_save'); if(d) { variables=JSON.parse(d); log("Game Loaded."); } }
-                else if (cmd === 'LOG') { log(parts.slice(1).join(' ')); }
-            } catch (e) { console.error(e); log("Error: " + e.message); }
-        }
-
-        // --- 5. AUDIO ---
-        function playSound(type) {
-            if(!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            const now = audioCtx.currentTime;
-            
-            if(type === 'jump') { osc.type='square'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(600, now+0.1); gain.gain.setValueAtTime(0.1,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.1); osc.start(now); osc.stop(now+0.1); }
-            else if (type === 'coin') { osc.type='sine'; osc.frequency.setValueAtTime(1200,now); osc.frequency.setValueAtTime(1600,now+0.1); gain.gain.setValueAtTime(0.1,now); gain.gain.linearRampToValueAtTime(0,now+0.2); osc.start(now); osc.stop(now+0.2); }
-            else if (type === 'explosion') { osc.type='sawtooth'; osc.frequency.setValueAtTime(100,now); osc.frequency.exponentialRampToValueAtTime(0.01,now+0.3); gain.gain.setValueAtTime(0.2,now); gain.gain.exponentialRampToValueAtTime(0.01,now+0.3); osc.start(now); osc.stop(now+0.3); }
-            else if (type === 'hit') { osc.type='square'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(0.01, now+0.1); gain.gain.setValueAtTime(0.1,now); gain.gain.linearRampToValueAtTime(0,now+0.1); osc.start(now); osc.stop(now+0.1); }
-            else if (type === 'powerup') { osc.type='sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.linearRampToValueAtTime(1000, now+0.3); gain.gain.setValueAtTime(0.1,now); gain.gain.linearRampToValueAtTime(0,now+0.3); osc.start(now); osc.stop(now+0.3); }
-        }
-
-        // --- 6. GAME CONTROL ---
-        function toggleGame() {
-            if (isRunning) return;
-            isRunning = true;
-            document.getElementById('runBtn').classList.add('hidden');
-            document.getElementById('stopBtn').classList.remove('hidden');
-            document.getElementById('gameMode').innerText = "PLAYING";
-            document.getElementById('gameMode').className = "text-green-400 font-bold";
-            document.getElementById('gameCanvas').style.cursor = 'default';
-            
-            entities = {}; particles = []; variables = {}; uiElements = [];
-            camera = {x:0, y:0, target:null, zoom:1, shake:0};
-            activeKeys.clear();
-            const code = codeEditor.value;
-            parseScript(code);
-            setupLines.forEach(line => executeCommand(line));
-            
-            lastTime = performance.now();
-            gameLoop(lastTime);
-        }
-
-        function stopGame() {
-            isRunning = false;
-            cancelAnimationFrame(animationFrameId);
-            document.getElementById('runBtn').classList.remove('hidden');
-            document.getElementById('stopBtn').classList.add('hidden');
-            document.getElementById('gameMode').innerText = "EDITOR";
-            document.getElementById('gameMode').className = "text-blue-400 font-bold";
-            drawPreview();
-        }
-
-        function gameLoop(time) {
-            if (!isRunning) return;
-            const delta = time - lastTime;
-            lastTime = time;
-            fpsCountSpan.innerText = Math.round(1000/delta) || 60;
-
-            uiElements = [];
-            loopLines.forEach(line => executeCommand(line));
-            for (let k in entities) entities[k].update(entities);
-            particles.forEach(p => p.update());
-            particles = particles.filter(p => p.life > 0);
-
-            if(camera.shake > 0) camera.shake--;
-            if(camera.target && entities[camera.target]) {
-                const t = entities[camera.target];
-                camera.x += (t.x + t.w/2 - camera.x) * 0.1;
-                camera.y += (t.y + t.h/2 - camera.y) * 0.1;
-            }
-            document.getElementById('camPos').innerText = `${Math.floor(camera.x)},${Math.floor(camera.y)}`;
-
-            ctx.fillStyle = '#1e293b';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.save();
-            ctx.filter = screenFilter;
-            ctx.translate(canvas.width/2, canvas.height/2);
-            ctx.scale(camera.zoom, camera.zoom);
-            const shakeX = (Math.random()-0.5)*camera.shake;
-            const shakeY = (Math.random()-0.5)*camera.shake;
-            ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
-
-            let count = 0;
-            for (let key in entities) { entities[key].draw(ctx); count++; }
-            particles.forEach(p => p.draw(ctx));
-            ctx.restore();
-
-            uiElements.forEach(ui => {
-                if(ui.type === 'text') {
-                    ctx.fillStyle = ui.col;
-                    ctx.font = `bold ${ui.size} monospace`;
-                    ctx.fillText(ui.content, ui.x, ui.y);
-                }
-            });
-            entityCountSpan.innerText = count;
-
-            animationFrameId = requestAnimationFrame(gameLoop);
-        }
-
-        // --- 7. VISUAL EDITOR LOGIC ---
-        function handleEditorInput() {
-            updateHighlights();
-            debouncePreview();
-        }
-
-        function syncScroll() {
-            codeBackdrop.scrollTop = codeEditor.scrollTop;
-            codeBackdrop.scrollLeft = codeEditor.scrollLeft;
-        }
-
-        function updateHighlights() {
-            const text = codeEditor.value;
-            const lines = text.split('\n');
-            let html = '';
-
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                const trimmed = line.trim();
-                
-                if (trimmed === '' || trimmed.startsWith('//')) {
-                    html += `<div>${escapeHtml(line) || '&nbsp;'}</div>`;
-                    continue;
-                }
-
-                const parts = trimmed.split(/\s+/);
-                const cmd = parts[0].toUpperCase();
-                
-                if (VALID_COMMANDS.has(cmd)) {
-                    html += `<div>${escapeHtml(line)}</div>`;
-                } else {
-                    html += `<div class="error-line">${escapeHtml(line) || '&nbsp;'}</div>`;
-                }
-            }
-            codeBackdrop.innerHTML = html;
-        }
-
-        function escapeHtml(text) {
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-        }
-
-        function debouncePreview() {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(drawPreview, 50); 
-        }
-
-        function drawPreview() {
-            if (isRunning) return;
-            
-            const code = codeEditor.value;
-            entities = {};
-            particles = [];
-            camera = {x:0, y:0, target:null, zoom:1, shake:0};
-            
-            parseScript(code);
-            setupLines.forEach(line => executeCommand(line));
-
-            if (draggingState && entities[draggingState.name]) {
-                entities[draggingState.name].x = draggingState.currentX;
-                entities[draggingState.name].y = draggingState.currentY;
-            }
-
-            ctx.fillStyle = '#1e293b';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.save();
-            
-            ctx.translate(canvas.width/2, canvas.height/2);
-            ctx.scale(camera.zoom, camera.zoom);
-            ctx.translate(-editorCamera.x, -editorCamera.y);
-
-            ctx.strokeStyle = '#334155';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            const gridSize = 32;
-            const startX = Math.floor((editorCamera.x - canvas.width/2)/gridSize)*gridSize;
-            const startY = Math.floor((editorCamera.y - canvas.height/2)/gridSize)*gridSize;
-            for(let x=startX; x<startX+canvas.width*2; x+=gridSize) { ctx.moveTo(x, startY-500); ctx.lineTo(x, startY+1000); }
-            for(let y=startY; y<startY+canvas.height*2; y+=gridSize) { ctx.moveTo(startX-500, y); ctx.lineTo(startX+1000, y); }
-            ctx.stroke();
-
-            for (let key in entities) { entities[key].draw(ctx); }
-            ctx.restore();
-            
-            entityCountSpan.innerText = Object.keys(entities).length;
-            updatePropList();
-        }
-
-        function updateScriptCoordinates(entity) {
-            const lines = codeEditor.value.split('\n');
-            const regex = new RegExp('^(\\s*CREATE\\s+' + entity.name + '\\s+)([^\\s]+)\\s+([^\\s]+)');
-            
-            for (let i = 0; i < lines.length; i++) {
-                if (regex.test(lines[i])) {
-                    lines[i] = lines[i].replace(regex, `$1${entity.x} ${entity.y}`);
-                    codeEditor.value = lines.join('\n');
-                    updateHighlights(); // Sync highlights
-                    log(`Updated ${entity.name} pos.`);
-                    return;
-                }
-            }
-            log(`Could not save position for ${entity.name}`);
-        }
-
-        // --- 8. UI HELPERS ---
-        function spawnObject(type) {
-            let code = "";
-            const id = Math.floor(Math.random()*1000);
-            if (type === 'wall') code = `CREATE wall_${id} ${Math.floor(editorCamera.x)} ${Math.floor(editorCamera.y)} 100 32\nSOLID wall_${id} true\nCOLOR wall_${id} #64748b`;
-            if (type === 'hero') code = `CREATE hero_${id} ${Math.floor(editorCamera.x)} ${Math.floor(editorCamera.y)} 24 24\nSOLID hero_${id} true\nPHYSICS hero_${id} true\nCOLOR hero_${id} #3b82f6`;
-            if (type === 'coin') code = `CREATE coin_${id} ${Math.floor(editorCamera.x)} ${Math.floor(editorCamera.y)} 16 16\nCOLOR coin_${id} #eab308`;
-            if (type === 'enemy') code = `CREATE enemy_${id} ${Math.floor(editorCamera.x)} ${Math.floor(editorCamera.y)} 24 24\nPHYSICS enemy_${id} true\nCOLOR enemy_${id} #ef4444`;
-            
-            const lines = codeEditor.value.split('\n');
-            let setupIdx = -1;
-            for(let i=0; i<lines.length; i++) {
-                if(lines[i].trim() === 'SETUP') { setupIdx = i; break; }
-            }
-            if (setupIdx === -1) { lines.unshift('SETUP'); setupIdx = 0; }
-            
-            lines.splice(setupIdx + 1, 0, code);
-            codeEditor.value = lines.join('\n');
-            updateHighlights();
-            drawPreview();
-        }
-
-        function toggleFullscreen() {
-            const el = document.getElementById('canvasContainer');
-            if (!document.fullscreenElement) {
-                el.requestFullscreen().catch(err => log("Fullscreen blocked"));
-                el.classList.add('fullscreen-container');
-                document.getElementById('gameCanvas').classList.add('fullscreen-canvas');
-            } else {
-                document.exitFullscreen();
-                el.classList.remove('fullscreen-container');
-                document.getElementById('gameCanvas').classList.remove('fullscreen-canvas');
-            }
-        }
-        document.addEventListener('fullscreenchange', () => {
-             if(!document.fullscreenElement) {
-                const el = document.getElementById('canvasContainer');
-                el.classList.remove('fullscreen-container');
-                document.getElementById('gameCanvas').classList.remove('fullscreen-canvas');
-             }
-        });
-
-        const pixelGrid=document.getElementById('pixelGrid'), colorPalette=document.getElementById('colorPalette');
-        let selectedColor='#ffffff', isDrawing=false, gridSize=16;
-        function initGrid(){pixelGrid.innerHTML=''; gridSize=parseInt(document.getElementById('gridSizeSel').value); pixelGrid.style.gridTemplateColumns=`repeat(${gridSize}, 1fr)`; for(let i=0;i<gridSize*gridSize;i++){const c=document.createElement('div');c.className='pixel-cell';c.onmousedown=()=>{isDrawing=true;c.style.backgroundColor=selectedColor;};c.onmouseenter=()=>{if(isDrawing)c.style.backgroundColor=selectedColor;};pixelGrid.appendChild(c);}} window.onmouseup=()=>{isDrawing=false;}; initGrid();
-        ['#000000','#1e293b','#64748b','#ffffff','#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7','#ec4899','#78350f'].forEach(c=>{const d=document.createElement('div');d.style.backgroundColor=c;d.className="w-5 h-5 rounded cursor-pointer border border-slate-600 hover:scale-110";d.onclick=()=>selectedColor=c;colorPalette.appendChild(d);});
-        function saveTexture(){const n=document.getElementById('textureName').value.trim().replace(/\s/g,'_');if(!n)return;const tC=document.createElement('canvas');tC.width=tC.height=gridSize;const tX=tC.getContext('2d');Array.from(pixelGrid.children).forEach((c,i)=>{if(c.style.backgroundColor&&c.style.backgroundColor!=='transparent'){tX.fillStyle=c.style.backgroundColor;tX.fillRect(i%gridSize,Math.floor(i/gridSize),1,1);}});const img=new Image();img.src=tC.toDataURL();textures[n]=img;const el=document.createElement('div');el.className="flex items-center gap-2 p-1 bg-slate-900 rounded border border-slate-700";el.innerHTML=`<img src="${img.src}" class="w-6 h-6 bg-slate-800 rendering-pixelated"><span class="text-xs text-slate-300 font-mono">${n}</span>`;document.getElementById('assetList').appendChild(el);}
-        
-        let selectedEntityName=null;
-        function updatePropList(){
-            const l=document.getElementById('propList'); l.innerHTML='';
-            const target = isRunning ? entities : (draggingState ? {[draggingState.name]:draggingState} : entities);
-            Object.keys(entities).forEach(n=>{const b=document.createElement('button');b.className="w-full text-left px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-white mb-1 flex justify-between";b.innerHTML=`${n} <i class="fa-solid fa-pen text-[10px] text-slate-400"></i>`;b.onclick=()=>editEnt(n);l.appendChild(b);});
-        }
-        function editEnt(n){selectedEntityName=n;const e=entities[n];document.getElementById('editForm').classList.remove('hidden');document.getElementById('editName').innerText=n;document.getElementById('editX').value=e.x;document.getElementById('editY').value=e.y;document.getElementById('editVX').value=e.vx;document.getElementById('editVY').value=e.vy;document.getElementById('editW').value=e.w;document.getElementById('editH').value=e.h;}
-        function closeEdit(){document.getElementById('editForm').classList.add('hidden');selectedEntityName=null;}
-        document.querySelectorAll('.prop-input').forEach(i=>i.onchange=()=>{if(!selectedEntityName)return; const e=entities[selectedEntityName]; e.x=+document.getElementById('editX').value;e.y=+document.getElementById('editY').value;e.vx=+document.getElementById('editVX').value;e.vy=+document.getElementById('editVY').value;e.w=+document.getElementById('editW').value;e.h=+document.getElementById('editH').value; if(!isRunning) updateScriptCoordinates(e); drawPreview();});
-
-        function togglePanel(id) { document.getElementById(id).classList.toggle('panel-hidden'); }
-        function switchTab(id) {document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));document.getElementById(id).classList.add('active');document.getElementById('studio-controls').style.display=id==='studio'?'flex':'none';}
-        function insertCode(txt){const el=codeEditor;el.setRangeText(txt,el.selectionStart,el.selectionEnd,'end');el.focus(); updateHighlights(); drawPreview();}
-        function clearCode(){if(confirm('Clear?')) { codeEditor.value=''; updateHighlights(); drawPreview(); }}
-        function copyToClipboard(txt){const el=document.createElement('textarea');el.value=txt;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);document.getElementById('toast').classList.add('show');setTimeout(()=>document.getElementById('toast').classList.remove('show'),2000);}
-        function copyFromInput(btn){const i=btn.parentElement.nextElementSibling.nextElementSibling;if(i)copyToClipboard(i.value);}
-        
-        function log(msg) { const el = document.getElementById('consoleText'); if(el) el.innerText = msg; }
-        function formatCode() { const val = codeEditor.value; const lines = val.split('\n').map(l => l.trim()); codeEditor.value = lines.join('\n'); updateHighlights(); }
-
-        // Initial Run
-        document.getElementById('codeEditor').value = `// --- GEMSTUDIO DEMO ---
-SETUP
-GRAVITY 0.5
-// Level
-CREATE ground 0 350 600 50
-SOLID ground true
-COLOR ground #475569
-
-CREATE platform 200 250 150 20
-SOLID platform true
-COLOR platform #64748b
-
-// Player
-CREATE player 100 200 24 24
-SOLID player true
-PHYSICS player true
-COLOR player #3b82f6
-CAM_FOLLOW player
-
-LOOP
-// Movement
-IF_KEY LEFT ADD_VEL player -1 0
-IF_KEY RIGHT ADD_VEL player 1 0
-IF_KEY SPACE IF_GROUNDED player ADD_VEL player 0 -12
-
-// Reset if fallen
-IF_COLLIDE player ground VELOCITY player 0 0
-`;
-        updateHighlights(); // Init highlights
-        drawPreview();
-
+        window.onload = () => {
+            Engine.init();
+            CodeManager.run();
+            // Initial Validate
+            Editor.update();
+        };
     </script>
 </body>
 </html>
